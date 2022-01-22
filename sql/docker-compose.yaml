@@ -1,0 +1,14 @@
+---
+version: '3'
+services:
+  postgres:
+    image: postgres:14.1-alpine
+    hostname: postgres
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=password
+    volumes:
+      - ./data/create-tables.sql:/docker-entrypoint-initdb.d/create-tables.sql # copy the sql script to create tables
