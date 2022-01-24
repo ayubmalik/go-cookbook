@@ -10,5 +10,8 @@ services:
     environment:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=pharmacy
     volumes:
-      - ./data/create-tables.sql:/docker-entrypoint-initdb.d/create-tables.sql # copy the sql script to create tables
+      # copy auto init SQL scripts
+      - ./data/create-tables.sql:/docker-entrypoint-initdb.d/create-tables.sql
+      - ./data/insert-pharmacies.sql:/docker-entrypoint-initdb.d/insert-pharmacies.sql
