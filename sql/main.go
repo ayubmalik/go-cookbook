@@ -28,11 +28,12 @@ type LatLng struct {
 type PharmacyRepo interface {
 	FindByCode(code string) (*Pharmacy, error)
 	FindByPostcode(partial string) ([]*Pharmacy, error)
-	Insert(p Pharmacy) (int, error)
+	Insert(p Pharmacy) error
 }
 
 type PSQLPharmacyRepo struct {
 	DB *sql.DB
+	PharmacyRepo
 }
 
 func (r PSQLPharmacyRepo) FindByCode(code string) (*Pharmacy, error) {
@@ -69,6 +70,28 @@ func (r PSQLPharmacyRepo) FindByPostcode(partial string) ([]*Pharmacy, error) {
 	return pharmacies, nil
 }
 
+func (r PSQLPharmacyRepo) Insert(p Pharmacy) error {
+	_, err := r.DB.Exec(
+		`insert into pharmacy(code, name, addr_line_1, addr_line_2, addr_line_3, addr_line_4,
+		postcode, lat, lng) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		p.Code,
+		p.Name,
+		p.AddrLine1,
+		p.AddrLine2,
+		p.AddrLine3,
+		p.AddrLine4,
+		p.Postcode,
+		p.LatLng.Lat,
+		p.LatLng.Lng,
+	)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func main() {
 	db, err := openDB()
 	if err != nil {
@@ -97,6 +120,22 @@ func main() {
 	log.Println(len(pharmacies))
 	log.Println(pharmacies[0].Code, pharmacies[0].Name, pharmacies[0].Postcode)
 	log.Println(pharmacies[1].Code, pharmacies[1].Name, pharmacies[1].Postcode)
+
+	pharmacy := Pharmacy{
+		Code:      "NEW1",
+		Name:      "A test pharmacy",
+		AddrLine1: "line1",
+		AddrLine2: "line2",
+		AddrLine3: "line3",
+		AddrLine4: "line4",
+		Postcode:  "postccode",
+		LatLng:    LatLng{Lat: 1.1, Lng: 2.2},
+	}
+
+	err = repo.Insert(pharmacy)
+	if err != nil {
+		log.Fatalf("could not insert pharmacy %v", err)
+	}
 
 }
 

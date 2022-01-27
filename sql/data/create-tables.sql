@@ -1,5 +1,5 @@
 create table if not exists pharmacy (
-  code char(5),
+  code char(5) primary key,
   name varchar(50),
   addr_line_1 varchar(50),
   addr_line_2 varchar(50),
