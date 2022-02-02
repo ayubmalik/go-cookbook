@@ -1,0 +1,17 @@
+---
+version: '3'
+services:
+  postgres:
+    image: postgres:14.1-alpine
+    hostname: postgres
+    container_name: postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=pharmacy
+    volumes:
+      # copy auto init SQL scripts
+      - ./data/create-tables.sql:/docker-entrypoint-initdb.d/create-tables.sql
+      - ./data/insert-pharmacies.sql:/docker-entrypoint-initdb.d/insert-pharmacies.sql

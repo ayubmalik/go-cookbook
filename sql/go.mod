@@ -1,4 +1,4 @@
-module github.com/ayubmalik/go-cookbook/sq
+module github.com/ayubmalik/go-cookbook/sql
 
 go 1.16
 

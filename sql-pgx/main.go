@@ -1,12 +1,12 @@
 package main
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"log"
 	"os"
 
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v4"
 )
 
 type Pharmacy struct {
@@ -32,16 +32,16 @@ type PharmacyRepo interface {
 }
 
 type PSQLPharmacyRepo struct {
-	DB *sql.DB
+	Conn *pgx.Conn
 	PharmacyRepo
 }
 
 func (r PSQLPharmacyRepo) FindByCode(code string) (*Pharmacy, error) {
 	sql := `select code, name, addr_line_1, addr_line_2, addr_line_3, addr_line_4, postcode
-		from pharmacy where code = $1`
+	from pharmacy where code = $1`
 
 	p := &Pharmacy{}
-	row := r.DB.QueryRow(sql, code)
+	row := r.Conn.QueryRow(context.Background(), sql, code)
 	err := row.Scan(&p.Code, &p.Name, &p.AddrLine1, &p.AddrLine2, &p.AddrLine3, &p.AddrLine4, &p.Postcode)
 	if err != nil {
 		return nil, err
@@ -50,11 +50,11 @@ func (r PSQLPharmacyRepo) FindByCode(code string) (*Pharmacy, error) {
 	return p, nil
 }
 
-func (r PSQLPharmacyRepo) FindByPostcode(partial string) ([]*Pharmacy, error) {
+func (r PSQLPharmacyRepo) FindByPostcode(postcode string) ([]*Pharmacy, error) {
 	sql := `select code, name, addr_line_1, addr_line_2, addr_line_3, addr_line_4, postcode
-		from pharmacy where postcode like concat($1::text, '%')`
+	from pharmacy where postcode like concat($1::text, '%')`
 
-	rows, err := r.DB.Query(sql, partial)
+	rows, err := r.Conn.Query(context.Background(), sql, postcode)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,8 @@ func (r PSQLPharmacyRepo) Insert(p Pharmacy) error {
 	sql := `insert into pharmacy(code, name, addr_line_1, addr_line_2, addr_line_3, addr_line_4,
 		postcode, lat, lng) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
-	_, err := r.DB.Exec(
+	_, err := r.Conn.Exec(
+		context.Background(),
 		sql,
 		p.Code,
 		p.Name,
@@ -99,14 +100,14 @@ func (r PSQLPharmacyRepo) Insert(p Pharmacy) error {
 }
 
 func main() {
-	db, err := openDB()
+	conn, err := openConn()
 	if err != nil {
 		log.Fatalf("could not get DB connection %s\n", err)
 	}
-	defer db.Close()
+	defer conn.Close(context.Background())
 
 	repo := PSQLPharmacyRepo{
-		DB: db,
+		Conn: conn,
 	}
 
 	// find single
@@ -146,26 +147,19 @@ func main() {
 
 }
 
-func openDB() (*sql.DB, error) {
-	dsn := fmt.Sprintf(
-		"host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
-		getEnvOrDefault("DB_HOST", "localhost"),
-		getEnvOrDefault("DB_PORT", "5432"),
-		getEnvOrDefault("DB_USER", "root"),
-		getEnvOrDefault("DB_PASSWORD", "password"),
-		getEnvOrDefault("DB_NAME", "pharmacy"),
-	)
+func openConn() (*pgx.Conn, error) {
+	url := getEnvOrDefault("DB_URL", "postgres://root:password@localhost:5432/pharmacy")
+	conn, err := pgx.Connect(context.Background(), url)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		os.Exit(1)
+	}
 
-	db, err := sql.Open("postgres", dsn)
+	err = conn.Ping(context.Background())
 	if err != nil {
 		return nil, err
 	}
-
-	err = db.Ping()
-	if err != nil {
-		return nil, err
-	}
-	return db, nil
+	return conn, nil
 }
 
 func getEnvOrDefault(key string, defValue string) string {
