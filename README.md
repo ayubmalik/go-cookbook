@@ -28,3 +28,7 @@ Uses the popular [https://github.com/jackc/pgx](pgx) library and postgres driver
 The entity/table is a simple NHS Pharmacy object taken from public UK data.
 
 Uses docker compose and PostgreSQL to create the tables.
+
+### sql-pgx-pool
+
+Same as [sql-pgx](#sql-pgx), but uses a custom connection pool instead of pgx.Connect() method
