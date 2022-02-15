@@ -32,3 +32,7 @@ Uses docker compose and PostgreSQL to create the tables.
 ### sql-pgx-pool
 
 Same as [sql-pgx](#sql-pgx), but uses a custom connection pool instead of pgx.Connect() method
+
+### logging
+
+Use standard library logger to set various formatting options and also how to write to a file, and both std out and file
