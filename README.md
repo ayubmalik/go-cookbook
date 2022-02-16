@@ -36,3 +36,7 @@ Same as [sql-pgx](#sql-pgx), but uses a custom connection pool instead of pgx.Co
 ### logging
 
 Use standard library logger to set various formatting options and also how to write to a file, and both std out and file
+
+### logging-zap
+
+Use the Uber [Zap](https://github.com/uber-go/zap) framework with development and production mode example.

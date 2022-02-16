@@ -45,7 +45,7 @@ func main() {
 	log.Println("Using a prefix before actual message")
 
 	// log to file only. If it exists will append
-	f, err := os.OpenFile("app.log", os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
+	f, err := os.OpenFile("app.log", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
