@@ -40,3 +40,7 @@ Use standard library logger to set various formatting options and also how to wr
 ### logging-zap
 
 Use the Uber [Zap](https://github.com/uber-go/zap) framework with development and production mode example.
+
+### sha256
+
+Using standard lib to create a SHA256 hash from `io.Reader` and example test.
