@@ -1,0 +1,22 @@
+
+func publish(done chan bool, conn mqtt.Client, topic string) {
+	tmpl, err := template.New("msg").Parse(`{ "timestamp": "{{.}}", "frequency": "50.0"}`)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	for i := 0; i < 100; i++ {
+		msg := &strings.Builder{}
+		err = tmpl.Execute(msg, time.Now().UTC())
+		if err != nil {
+			log.Fatalln(err)
+		}
+		log.Printf("sending message: %s", msg)
+		if token := conn.Publish(topic, 0, false, msg.String()); token.Wait() && token.Error() != nil {
+			log.Fatalf("failed to send update: %v", token.Error())
+		}
+		time.Sleep(time.Second)
+	}
+	done <- true
+}
+

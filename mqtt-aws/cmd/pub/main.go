@@ -9,10 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
-	"net/url"
 	"os"
-	"strings"
-	"text/template"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -20,81 +17,74 @@ import (
 
 func main() {
 	if err := run(os.Args, os.Stdout); err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
+		log.Fatalln(err)
 	}
 }
 
 func run(args []string, stdout io.Writer) error {
-
 	var (
 		flags    = flag.NewFlagSet(args[0], flag.ExitOnError)
-		host     = flag.String("host", "", "the host/endpoint")
+		host     = flags.String("host", "", "the host/endpoint")
 		keyFile  = flags.String("keyfile", "", "The private key file in PEM format")
 		certFile = flags.String("certfile", "", "The certificate file in PEM format")
 		caFile   = flags.String("cafile", "", "The CA certificate file in PEM format")
+		topic    = flags.String("topic", "topic_1", "The MQTT topic for pub/sub")
 	)
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
 	}
 
-	if *keyFile == "" || *certFile == "" {
-		return errors.New("both keyFile and certFile are required")
+	if *host == "" || *keyFile == "" || *certFile == "" {
+		return errors.New("host, keyFile and certFile are required")
 	}
 
-	fmt.Printf("keyFile = %s, certFile = %s, caFile = %s\n", *keyFile, *certFile, *caFile)
+	fmt.Printf("host=%s, keyFile=%s, certFile=%s, caFile=%s\n", *host, *keyFile, *certFile, *caFile)
 
 	// MQTT specific stuff
+	var messagePubHandler mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
+		log.Printf("Received message: %s from topic: %s\n", msg.Payload(), msg.Topic())
+	}
+
+	var connectHandler mqtt.OnConnectHandler = func(client mqtt.Client) {
+		log.Println("Connected")
+	}
+
+	var connectLostHandler mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
+		log.Printf("Connect lost: %v", err)
+	}
+
 	tlsConfig, err := NewTLSConfig(*caFile, *certFile, *keyFile)
 	if err != nil {
-		return err
+		panic(err)
 	}
 
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tls://%s:%d", *host, 8883))
-	opts.SetClientID("sdk-java")
+	opts.SetClientID("basicPubSub")
 	opts.SetTLSConfig(tlsConfig)
-
-	opts.SetConnectionAttemptHandler(func(broker *url.URL, tlsCfg *tls.Config) *tls.Config {
-		log.Printf("connecting to %s\n", broker.String())
-		return tlsConfig
-	})
+	opts.SetDefaultPublishHandler(messagePubHandler)
+	opts.OnConnect = connectHandler
+	opts.OnConnectionLost = connectLostHandler
 
 	// Start the connection.
-	c := mqtt.NewClient(opts)
-	if token := c.Connect(); token.Wait() && token.Error() != nil {
-		log.Fatalf("failed to create connection: %v", token.Error())
+	client := mqtt.NewClient(opts)
+	if token := client.Connect(); token.Wait() && token.Error() != nil {
+		log.Fatalln(token.Error())
 	}
-	fmt.Printf("connected to MQTT = %t\n", c.IsConnected())
 
-	done := make(chan bool)
-	go publish(done, c, "topic_1")
-	<-done
-
-	defer c.Disconnect(50)
-
+	publish(client, *topic)
+	client.Disconnect(250)
 	return nil
 }
 
-func publish(done chan bool, conn mqtt.Client, topic string) {
-	tmpl, err := template.New("msg").Parse(`{ "timestamp": "{{.}}", "frequency": "50.0"}`)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	for i := 0; i < 100; i++ {
-		msg := &strings.Builder{}
-		err = tmpl.Execute(msg, time.Now().UTC())
-		if err != nil {
-			log.Fatalln(err)
-		}
-		log.Printf("sending message: %s", msg)
-		if token := conn.Publish(topic, 0, false, msg.String()); token.Wait() && token.Error() != nil {
-			log.Fatalf("failed to send update: %v", token.Error())
-		}
+func publish(client mqtt.Client, topic string) {
+	num := 10
+	for i := 0; i < num; i++ {
+		text := fmt.Sprintf("Message %d", i)
+		token := client.Publish(topic, 0, false, text)
+		token.Wait()
 		time.Sleep(time.Second)
 	}
-	done <- true
 }
 
 func NewTLSConfig(caFile, certFile, keyFile string) (*tls.Config, error) {
