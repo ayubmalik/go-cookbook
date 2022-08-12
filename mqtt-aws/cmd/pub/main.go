@@ -60,7 +60,7 @@ func run(args []string, stdout io.Writer) error {
 
 	opts := mqtt.NewClientOptions()
 	opts.AddBroker(fmt.Sprintf("tls://%s:%d", *host, 8883))
-	opts.SetClientID("basicPubSub")
+	opts.SetClientID("sdk-java")
 	opts.SetTLSConfig(tlsConfig)
 	opts.SetDefaultPublishHandler(messagePubHandler)
 	opts.OnConnect = connectHandler
