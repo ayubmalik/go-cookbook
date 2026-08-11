@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/jackc/pgx/v4"
+	"github.com/jackc/pgx/v5"
 )
 
 type Pharmacy struct {
@@ -37,8 +37,8 @@ type PSQLPharmacyRepo struct {
 }
 
 func (r PSQLPharmacyRepo) FindByCode(code string) (*Pharmacy, error) {
-	sql := `select code, name, addr_line_1, addr_line_2, addr_line_3, addr_line_4, postcode
-	from pharmacy where code = $1`
+	sql := `SELECT code, name, addr_line_1, addr_line_2, addr_line_3, addr_line_4, postcode
+	FROM pharmacy WHERE code = $1`
 
 	p := &Pharmacy{}
 	row := r.Conn.QueryRow(context.Background(), sql, code)
@@ -51,8 +51,8 @@ func (r PSQLPharmacyRepo) FindByCode(code string) (*Pharmacy, error) {
 }
 
 func (r PSQLPharmacyRepo) FindByPostcode(postcode string) ([]*Pharmacy, error) {
-	sql := `select code, name, addr_line_1, addr_line_2, addr_line_3, addr_line_4, postcode
-	from pharmacy where postcode like concat($1::text, '%')`
+	sql := `SELECT code, name, addr_line_1, addr_line_2, addr_line_3, addr_line_4, postcode
+	FROM pharmacy WHERE postcode LIKE concat($1::text, '%')`
 
 	rows, err := r.Conn.Query(context.Background(), sql, postcode)
 	if err != nil {
@@ -75,8 +75,8 @@ func (r PSQLPharmacyRepo) FindByPostcode(postcode string) ([]*Pharmacy, error) {
 }
 
 func (r PSQLPharmacyRepo) Insert(p Pharmacy) error {
-	sql := `insert into pharmacy(code, name, addr_line_1, addr_line_2, addr_line_3, addr_line_4,
-		postcode, lat, lng) values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
+	sql := `INSERT INTO pharmacy(code, name, addr_line_1, addr_line_2, addr_line_3, addr_line_4,
+		postcode, lat, lng) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`
 
 	_, err := r.Conn.Exec(
 		context.Background(),
@@ -104,7 +104,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("could not get DB connection %s\n", err)
 	}
-	defer conn.Close(context.Background())
+	defer func(conn *pgx.Conn, ctx context.Context) {
+		_ = conn.Close(ctx)
+	}(conn, context.Background())
 
 	repo := PSQLPharmacyRepo{
 		Conn: conn,
@@ -135,7 +137,7 @@ func main() {
 		AddrLine2: "line2",
 		AddrLine3: "line3",
 		AddrLine4: "line4",
-		Postcode:  "postccode",
+		Postcode:  "postcode",
 		LatLng:    LatLng{Lat: 1.1, Lng: 2.2},
 	}
 
@@ -151,8 +153,8 @@ func openConn() (*pgx.Conn, error) {
 	url := getEnvOrDefault("DB_URL", "postgres://root:password@localhost:5432/pharmacy")
 	conn, err := pgx.Connect(context.Background(), url)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
-		os.Exit(1)
+		_, _ = fmt.Fprintf(os.Stderr, "Unable to connect to database: %v\n", err)
+		return nil, err
 	}
 
 	err = conn.Ping(context.Background())
